@@ -76,8 +76,18 @@ Import-Module PnP.PowerShell
 #--------------------------------------------------------------
 # 2) Connect (interactive browser login)
 #--------------------------------------------------------------
-$connect = @{ Url = $SiteUrl; Interactive = $true }
-if ($ClientId) { $connect['ClientId'] = $ClientId }
+if (-not $ClientId) {
+    Write-Host ''
+    Write-Warning 'No ClientId given: PnP 3.x requires a one-time Entra app registration.'
+    Write-Host '  ONE-TIME SETUP - run this in PowerShell 7 as your M365 admin:' -ForegroundColor Cyan
+    Write-Host '    Register-PnPEntraIDApp -Interactive -DisplayName "IT Inventory Sync" -Tenant refrontiergroup.onmicrosoft.com' -ForegroundColor Cyan
+    Write-Host '  Sign in with your admin account and consent. It prints a ClientId (guid).' -ForegroundColor Cyan
+    Write-Host '  Paste it into Run-Sync.cmd on the CLIENT_ID line (remove the REM),' -ForegroundColor Cyan
+    Write-Host '  or pass it as:  -ClientId <guid>' -ForegroundColor Cyan
+    Write-Host ''
+    return
+}
+$connect = @{ Url = $SiteUrl; Interactive = $true; ClientId = $ClientId }
 Connect-PnPOnline @connect
 Write-Host "[OK] Connected to $SiteUrl" -ForegroundColor Green
 
