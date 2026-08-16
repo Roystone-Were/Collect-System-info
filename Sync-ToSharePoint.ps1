@@ -40,11 +40,14 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$SiteUrl,
     [string]$ListName = 'IT Inventory',
-    [string]$Folder = (Join-Path $PSScriptRoot 'Results'),
+    [string]$Folder = '',
     [string]$ClientId = ''
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Resolve defaults in the body: $PSScriptRoot can be empty in param defaults on Windows PowerShell 5.1
+if (-not $Folder) { $Folder = Join-Path $PSScriptRoot 'Results' }
 
 #--------------------------------------------------------------
 # 1) Ensure PnP PowerShell (per-user install, no admin needed)

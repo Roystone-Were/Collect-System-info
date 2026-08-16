@@ -19,12 +19,15 @@
 
 [CmdletBinding()]
 param(
-    [string]$Folder = $PSScriptRoot,
+    [string]$Folder = '',
     [string]$OutCsv   = 'Master_Inventory.csv',
     [string]$OutExcel = 'Master_Inventory.xlsx'
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Resolve default in the body: $PSScriptRoot can be empty in param defaults on Windows PowerShell 5.1
+if (-not $Folder) { $Folder = $PSScriptRoot }
 
 if (-not (Test-Path -LiteralPath $Folder)) {
     Write-Error "Folder not found: $Folder"

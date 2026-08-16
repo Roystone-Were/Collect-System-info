@@ -1,2 +1,6 @@
 # Collected inventory CSVs contain PII (names, emails, serials, MACs) - never commit
 Results/
+
+# Merged master files contain the same PII - never commit
+Master_Inventory.csv
+Master_Inventory.xlsx
