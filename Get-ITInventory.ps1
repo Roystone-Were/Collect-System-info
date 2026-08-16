@@ -162,6 +162,12 @@ $totalRAM_GB = [math]::Round($cs.TotalPhysicalMemory / 1GB, 1)
 $modules     = @(Get-CimInstance Win32_PhysicalMemory)
 $ramModules  = $modules.Count
 $ramSpeed    = if ($modules.Count) { ($modules.Speed -join '/') } else { 'N/A' }
+# RAM upgrade info: max supported + free slots (Win32_PhysicalMemoryArray)
+$ramArray    = @(Get-CimInstance Win32_PhysicalMemoryArray -ErrorAction SilentlyContinue)
+$ramMaxKB    = ($ramArray | Measure-Object MaxCapacityEx -Sum).Sum
+$ramMaxGB    = if ($ramMaxKB) { [math]::Round($ramMaxKB / 1MB, 0) } else { 'N/A' }
+$ramSlots    = ($ramArray | Measure-Object MemoryDevices -Sum).Sum
+$ramFreeSlot = if ($ramSlots) { [math]::Max(0, $ramSlots - $ramModules) } else { 'N/A' }
 
 # Disks (SSD/HDD)
 $diskList = @()
@@ -179,6 +185,14 @@ try {
     }
 }
 $diskSummary = if ($diskList.Count) { $diskList -join '  |  ' } else { 'N/A' }
+
+# Disk health (early warning for failing SSDs/HDDs)
+$diskHealth = 'N/A'
+try {
+    $diskHealth = (Get-PhysicalDisk -ErrorAction Stop |
+        ForEach-Object { '{0}:{1}' -f $_.FriendlyName, $_.HealthStatus }) -join '  |  '
+    if (-not $diskHealth) { $diskHealth = 'N/A' }
+} catch {}
 
 # C: drive
 $cDrive  = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
@@ -203,6 +217,69 @@ try {
 } catch {}
 $lastBoot = if ($os.LastBootUpTime) { $os.LastBootUpTime.ToString('yyyy-MM-dd HH:mm') } else { 'N/A' }
 $uptime   = if ($os.LastBootUpTime) { [math]::Round(((Get-Date) - $os.LastBootUpTime).TotalDays, 1) } else { 'N/A' }
+
+#--------------------------------------------------------------
+# Health & security posture
+#--------------------------------------------------------------
+# Battery wear: current full-charge capacity vs design capacity
+$battHealth = 'N/A'
+try {
+    $battDesign = (Get-CimInstance -Namespace root\WMI -ClassName BatteryStaticData -ErrorAction Stop | Select-Object -First 1).DesignedCapacity
+    $battFull   = (Get-CimInstance -Namespace root\WMI -ClassName BatteryFullChargedCapacity -ErrorAction Stop | Select-Object -First 1).FullChargedCapacity
+    if ($battDesign -and $battFull) { $battHealth = '{0}%' -f [math]::Round(100 * $battFull / $battDesign, 0) }
+} catch {}
+
+# Windows Defender (absence usually means a 3rd-party AV is installed)
+$defender = 'Not found (3rd-party AV?)'
+$defSigAge = 'N/A'; $defScanAge = 'N/A'
+try {
+    $mp = Get-MpComputerStatus -ErrorAction Stop
+    $defender = 'AV:{0} RT:{1}' -f $(if ($mp.AntivirusEnabled) {'On'} else {'Off'}),
+                              $(if ($mp.RealTimeProtectionEnabled) {'On'} else {'Off'})
+    if ($mp.AntivirusSignatureLastUpdated -and $mp.AntivirusSignatureLastUpdated.Year -gt 2000) {
+        $defSigAge = [math]::Round(((Get-Date) - $mp.AntivirusSignatureLastUpdated).TotalDays, 0)
+    }
+    if ($mp.QuickScanEndTime -and $mp.QuickScanEndTime.Year -gt 2000) {
+        $defScanAge = [math]::Round(((Get-Date) - $mp.QuickScanEndTime).TotalDays, 0)
+    }
+} catch {}
+
+# Firewall per profile
+$firewall = 'N/A'
+try {
+    $fw = Get-NetFirewallProfile -ErrorAction Stop
+    if ($fw) { $firewall = ($fw | ForEach-Object { '{0}:{1}' -f $_.Name, $(if ($_.Enabled) {'On'} else {'Off'}) }) -join ' ' }
+} catch {}
+
+# Pending reboot (updates waiting for a restart)
+$pendingReboot = 'No'
+if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') { $pendingReboot = 'Yes' }
+elseif (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') { $pendingReboot = 'Yes' }
+elseif (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue) { $pendingReboot = 'Yes' }
+
+# Windows activation / license status
+$actMap = @{ 0='Unlicensed'; 1='Licensed'; 2='Grace'; 3='Grace'; 4='Non-genuine'; 5='Notification'; 6='Grace' }
+$licStatus = (Get-CimInstance -ClassName SoftwareLicensingProduct -Filter "PartialProductKey IS NOT NULL AND Name LIKE 'Windows%'" -ErrorAction SilentlyContinue |
+    Select-Object -First 1).LicenseStatus
+if ($null -eq $licStatus) {
+    $licStatus = (Get-CimInstance -ClassName SoftwareLicensingService -ErrorAction SilentlyContinue | Select-Object -First 1).LicenseStatus
+}
+$activation = if ($null -ne $licStatus -and $actMap.ContainsKey([int]$licStatus)) { $actMap[[int]$licStatus] } else { 'N/A' }
+
+# BitLocker (reading the encryption namespace requires an elevated session)
+$bitlocker = 'Run as admin to check'
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if ($isAdmin) {
+    try {
+        $vol = Get-CimInstance -Namespace root\cimv2\Security\MicrosoftVolumeEncryption -ClassName Win32_EncryptableVolume -Filter "DriveLetter='C:'" -ErrorAction Stop
+        if ($vol) {
+            $bitlocker = switch ([int]$vol.ProtectionStatus) { 0 {'Not encrypted'} 1 {'Encrypted'} 2 {'Protection off'} default {'Unknown'} }
+        }
+    } catch { $bitlocker = 'N/A' }
+}
+
+# OS support status (Windows 10 passed end of support in Oct 2025; Win11 builds are 22000+)
+$osSupport = if ([int]$os.BuildNumber -lt 22000) { 'EOL - unsupported' } else { 'Supported' }
 
 #--------------------------------------------------------------
 # Peripherals: monitors, keyboard, mouse, scanner, other USB
@@ -291,6 +368,8 @@ $row = [PSCustomObject]@{
     'Domain'          = $domain
     'OS'              = "$osName $osArch"
     'OSBuild'         = $osBuild
+    'OSSupport'       = $osSupport
+    'Activation'      = $activation
     'Manufacturer'    = $manufacturer
     'Model'           = $model
     'SerialNumber'    = $serial
@@ -300,14 +379,24 @@ $row = [PSCustomObject]@{
     'TotalRAM_GB'     = $totalRAM_GB
     'RAM_Modules'     = $ramModules
     'RAM_Speed'       = $ramSpeed
+    'RAM_Max_GB'      = $ramMaxGB
+    'RAM_FreeSlots'   = $ramFreeSlot
     'Disks'           = $diskSummary
+    'DiskHealth'      = $diskHealth
     'DriveC_Total_GB' = $cTotal
     'DriveC_Free_GB'  = $cFree
     'IPv4'            = $ipAddr
     'MAC'             = $macAddr
     'GPU'             = $gpuName
     'Battery'         = $batteryP
+    'BatteryHealth_Pct' = $battHealth
     'TPM_Enabled'     = $tpmOn
+    'BitLocker'       = $bitlocker
+    'Defender'        = $defender
+    'Defender_SigAge_Days' = $defSigAge
+    'Defender_LastScan_Days' = $defScanAge
+    'Firewall'        = $firewall
+    'PendingReboot'   = $pendingReboot
     'Monitor(s)'      = $monitors
     'Keyboard'        = $keyboardStr
     'KeyboardVendor'  = $keyboardVendor

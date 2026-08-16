@@ -96,7 +96,7 @@ if (-not (Get-PnPList -Identity $ListName -ErrorAction SilentlyContinue)) {
 try { Set-PnPField -List $ListName -Identity 'Title' -Values @{ Title = 'Owner' } | Out-Null } catch {}
 
 $longText   = @('Disks', 'Monitor(s)', 'Keyboard', 'Mouse', 'Scanner')   # >255 chars possible
-$numberCols = @('Cores', 'Threads', 'TotalRAM_GB', 'RAM_Modules', 'DriveC_Total_GB', 'DriveC_Free_GB', 'Uptime_Days')
+$numberCols = @('Cores', 'Threads', 'TotalRAM_GB', 'RAM_Modules', 'RAM_Max_GB', 'RAM_FreeSlots', 'DriveC_Total_GB', 'DriveC_Free_GB', 'Uptime_Days', 'Defender_SigAge_Days', 'Defender_LastScan_Days')
 $dateCols   = @('Collected')
 
 $fieldMap = @{}   # CSV column name -> SharePoint field internal name

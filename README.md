@@ -18,9 +18,15 @@ saved straight to the USB stick - no network share or admin rights needed.
 ## What each CSV captures
 
 Computer name · logged-in user · owner · work email · domain · Windows
-edition/build · manufacturer · model · serial number · CPU (cores/threads) ·
-RAM (GB/modules/speed) · disks · C: total/free · IPv4 · MAC · GPU · battery ·
-TPM · monitors · keyboard/mouse/scanner · last boot · uptime · timestamp.
+edition/build + support status + activation · manufacturer · model · serial
+number · CPU (cores/threads) · RAM (GB/modules/speed/max/empty slots) · disks
++ health status · C: total/free · IPv4 · MAC · GPU · battery + health % ·
+TPM · BitLocker · Defender (AV/real-time/signature age/last scan) · firewall
+per profile · pending reboot · monitors · keyboard/mouse/scanner · last
+boot · uptime · timestamp.
+
+Note: BitLocker needs the collector to run elevated (right-click,
+Run as administrator); all other fields work as a normal user.
 
 ## Notes
 
