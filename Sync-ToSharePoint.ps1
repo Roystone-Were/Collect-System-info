@@ -54,9 +54,12 @@ if (-not $Folder) { $Folder = Join-Path $PSScriptRoot 'Results' }
 #--------------------------------------------------------------
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 if (-not (Get-Module -ListAvailable -Name PnP.PowerShell)) {
-    Write-Host '[i] Installing PnP.PowerShell for the current user (one-time)...' -ForegroundColor Cyan
+    Write-Host '[i] Installing PnP.PowerShell for the current user (one-time).' -ForegroundColor Cyan
+    Write-Host '    Downloads ~90 MB. The first ~30 seconds can look quiet -' -ForegroundColor DarkGray
+    Write-Host '    then a progress bar appears. Do not close this window.' -ForegroundColor DarkGray
+    $ProgressPreference = 'Continue'   # ensure the download progress bar is displayed
     try {
-        Install-Module PnP.PowerShell -Scope CurrentUser -Force -ErrorAction Stop
+        Install-Module PnP.PowerShell -Scope CurrentUser -Force -SkipPublisherCheck -ErrorAction Stop
     } catch {
         throw "Could not install PnP.PowerShell automatically. Run this once in a normal console and answer Yes:`n    Install-Module PnP.PowerShell -Scope CurrentUser -Force"
     }
