@@ -8,10 +8,12 @@ saved straight to the USB stick - no network share or admin rights needed.
 
 1. Copy this folder to a USB stick.
 2. On each laptop, double-click `Run-on-USB.cmd` (run as the logged-in user).
-3. It runs `Get-ITInventory.ps1` and writes `<ComputerName>_sysinfo.csv`
-   into `Results\` on the USB.
-4. Bring the USB back and merge all CSVs into one workbook with
-   `Merge-ITInventory.ps1` (kept in the central ITInventory folder).
+3. It runs `Get-ITInventory.ps1` (asking you to type the PC owner's name)
+   and writes `<Owner>_sysinfo.csv` into `Results\` on the USB.
+4. Back at your desk, combine every CSV into one workbook + master CSV:
+   `powershell -NoProfile -ExecutionPolicy Bypass -File .\Merge-ITInventory.ps1 -Folder .\Results`
+5. Or push everything straight into your SharePoint inventory list:
+   `powershell -NoProfile -ExecutionPolicy Bypass -File .\Sync-ToSharePoint.ps1 -SiteUrl "https://<tenant>.sharepoint.com/sites/<site>"`
 
 ## What each CSV captures
 
