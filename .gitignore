@@ -1,0 +1,2 @@
+# Collected inventory CSVs contain PII (names, emails, serials, MACs) - never commit
+Results/
