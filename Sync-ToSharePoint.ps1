@@ -50,8 +50,11 @@ $ErrorActionPreference = 'Stop'
 if (-not $Folder) { $Folder = Join-Path $PSScriptRoot 'Results' }
 
 #--------------------------------------------------------------
-# 1) Ensure PnP PowerShell (per-user install, no admin needed)
+# 1) Ensure PnP PowerShell (requires PowerShell 7.4+; per-user install)
 #--------------------------------------------------------------
+if ($PSVersionTable.PSVersion -lt [version]'7.4.0') {
+    throw "PowerShell 7.4+ is required, but this session is $($PSVersionTable.PSVersion). Launch via Run-Sync.cmd (it picks pwsh automatically), or from a terminal run:`n    pwsh -NoProfile -ExecutionPolicy Bypass -File .\Sync-ToSharePoint.ps1 -SiteUrl <url> -ListName 'System Information'"
+}
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 if (-not (Get-Module -ListAvailable -Name PnP.PowerShell)) {
     Write-Host '[i] Installing PnP.PowerShell for the current user (one-time).' -ForegroundColor Cyan
@@ -59,7 +62,11 @@ if (-not (Get-Module -ListAvailable -Name PnP.PowerShell)) {
     Write-Host '    then a progress bar appears. Do not close this window.' -ForegroundColor DarkGray
     $ProgressPreference = 'Continue'   # ensure the download progress bar is displayed
     try {
-        Install-Module PnP.PowerShell -Scope CurrentUser -Force -SkipPublisherCheck -ErrorAction Stop
+        if (Get-Command Install-PSResource -ErrorAction SilentlyContinue) {
+            Install-PSResource -Name PnP.PowerShell -Scope CurrentUser -TrustRepository -ErrorAction Stop
+        } else {
+            Install-Module PnP.PowerShell -Scope CurrentUser -Force -ErrorAction Stop
+        }
     } catch {
         throw "Could not install PnP.PowerShell automatically. Run this once in a normal console and answer Yes:`n    Install-Module PnP.PowerShell -Scope CurrentUser -Force"
     }
