@@ -12,8 +12,10 @@ saved straight to the USB stick - no network share or admin rights needed.
    and writes `<Owner>_sysinfo.csv` into `Results\` on the USB.
 4. Back at your desk, combine every CSV into one workbook + master CSV:
    `powershell -NoProfile -ExecutionPolicy Bypass -File .\Merge-ITInventory.ps1 -Folder .\Results`
-5. Or push everything straight into your SharePoint inventory list:
+5. (Optional/experimental) push everything into a SharePoint list:
    `powershell -NoProfile -ExecutionPolicy Bypass -File .\Sync-ToSharePoint.ps1 -SiteUrl "https://<tenant>.sharepoint.com/sites/<site>"`
+   Requires PowerShell 7 and a one-time Entra app registration - see the
+   script header. The Excel master from step 4 is the primary output.
 
 ## What each CSV captures
 
